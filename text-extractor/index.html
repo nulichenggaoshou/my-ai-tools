@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本提取小工具</title>
+  <!-- SheetJS：用来解析 Excel（.xlsx/.xls）文件 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --tag-bg: #eef2ff;
+      --tag-text: #4338ca;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+    .container { max-width: 860px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 28px; font-weight: 700; }
+    header p { color: var(--muted); margin-top: 6px; font-size: 15px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 15px;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color .15s;
+    }
+    textarea:focus { border-color: var(--primary); }
+    /* 拖入文件时的视觉提示 */
+    textarea.dragover {
+      border-color: var(--primary);
+      border-style: dashed;
+      background: #f5f6ff;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+    .type-label { font-weight: 600; font-size: 14px; color: var(--muted); margin-right: 2px; }
+    .types { display: flex; flex-wrap: wrap; gap: 8px; }
+    .type-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px; cursor: pointer;
+      border: 1px solid var(--border); background: #fff; font-size: 14px;
+      user-select: none; transition: all .15s;
+    }
+    .type-chip input { display: none; }
+    .type-chip.on { background: var(--tag-bg); border-color: var(--primary); color: var(--tag-text); font-weight: 600; }
+
+    .actions { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+    button {
+      border: none; border-radius: 9px; padding: 10px 18px;
+      font-size: 15px; cursor: pointer; transition: all .15s; font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: #fff; font-weight: 600; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: #f3f4f6; }
+
+    .file-hint { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+    .summary { text-align: center; font-size: 15px; color: var(--muted); margin: 4px 0 18px; }
+    .summary b { color: var(--primary); }
+
+    .result-group { margin-bottom: 18px; }
+    .result-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .result-head .name { font-weight: 700; font-size: 15px; }
+    .result-head .count {
+      background: var(--primary); color: #fff; font-size: 12px;
+      border-radius: 999px; padding: 1px 9px; font-weight: 600;
+    }
+    .result-head .copy {
+      margin-left: auto; font-size: 13px; color: var(--primary);
+      background: none; border: none; cursor: pointer; padding: 4px 8px;
+    }
+    .result-head .copy:hover { text-decoration: underline; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag {
+      background: var(--tag-bg); color: var(--tag-text);
+      padding: 5px 12px; border-radius: 8px; font-size: 14px; font-family: ui-monospace, Consolas, monospace;
+    }
+    .empty { text-align: center; color: #9ca3af; padding: 30px 0; font-size: 15px; }
+    footer { text-align: center; color: #9ca3af; font-size: 13px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔍 文本提取小工具</h1>
+      <p>从文本或文件里一键提取手机号、邮箱、网址、日期、身份证、银行卡、金额、座机、IP、微信、QQ 等</p>
+    </header>
+
+    <div class="card">
+      <textarea id="input" placeholder="把需要提取的文本粘贴到这里，或直接把 .txt / .csv / .xlsx 文件拖进来……"></textarea>
+      <div class="file-hint">💡 支持拖入文件：.txt（文本）、.csv（表格）、.xlsx/.xls（Excel）</div>
+      <div class="toolbar">
+        <span class="type-label">提取类型：</span>
+        <div class="types" id="types">
+          <label class="type-chip on"><input type="checkbox" value="phone" checked> 📱 手机号</label>
+          <label class="type-chip on"><input type="checkbox" value="email" checked> 📧 邮箱</label>
+          <label class="type-chip on"><input type="checkbox" value="url" checked> 🔗 网址</label>
+          <label class="type-chip on"><input type="checkbox" value="date" checked> 📅 日期</label>
+          <label class="type-chip on"><input type="checkbox" value="idcard" checked> 🆔 身份证</label>
+          <label class="type-chip on"><input type="checkbox" value="bankcard" checked> 💳 银行卡号</label>
+          <label class="type-chip on"><input type="checkbox" value="money" checked> 💰 金额</label>
+          <label class="type-chip on"><input type="checkbox" value="landline" checked> ☎ 座机号</label>
+          <label class="type-chip on"><input type="checkbox" value="ip" checked> 🌐 IP地址</label>
+          <label class="type-chip on"><input type="checkbox" value="wechat" checked> 💬 微信号</label>
+          <label class="type-chip on"><input type="checkbox" value="qq" checked> 🐧 QQ号</label>
+          <label class="type-chip on"><input type="checkbox" value="number" checked> 🔢 数字</label>
+        </div>
+        <div class="actions">
+          <button class="btn-ghost" id="import">📁 导入文件</button>
+          <input type="file" id="fileInput" accept=".txt,.csv,.xlsx,.xls" style="display:none">
+          <button class="btn-ghost" id="sample">载入示例</button>
+          <button class="btn-ghost" id="clear">清空</button>
+          <button class="btn-primary" id="run">开始提取</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary" id="summary"></div>
+    <div class="export-bar" id="exportBar" style="display:none">
+      <button class="btn-ghost" id="exportTxt">📥 导出 TXT</button>
+      <button class="btn-ghost" id="exportCsv">📊 导出 CSV</button>
+    </div>
+    <div id="results"></div>
+
+    <footer>我的第一个 AI 小工具 · 纯网页版，双击即可使用</footer>
+  </div>
+
+  <script>
+    // 各类信息的提取规则（正则表达式）
+    const RULES = {
+      phone:    { name: '📱 手机号', re: /1[3-9]\d{9}/ },
+      email:    { name: '📧 邮箱',   re: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/ },
+      url:      { name: '🔗 网址',   re: /https?:\/\/[^\s"'<>]+/ },
+      date:     { name: '📅 日期',   re: /\d{4}[年\/\-]\d{1,2}[月\/\-]\d{1,2}日?/ },
+      idcard:   { name: '🆔 身份证', re: /\d{17}[\dXx]/ },
+      bankcard: { name: '💳 银行卡号', re: /\d{4}(?:[ -]\d{4}){3,5}/ },
+      money:    { name: '💰 金额',   re: /(?:[￥¥$€]\s*\d+(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?\s*[元块])/ },
+      landline: { name: '☎ 座机号', re: /0\d{2,3}[-\s]?\d{7,8}/ },
+      ip:       { name: '🌐 IP地址', re: /(?:\d{1,3}\.){3}\d{1,3}/ },
+      wechat:   { name: '💬 微信号', re: /微信[号]?[：:\s]*([a-zA-Z][a-zA-Z0-9_-]{5,19})|(wxid_[a-zA-Z0-9_-]+)/ },
+      qq:       { name: '🐧 QQ号',   re: /QQ[：:\s]*([1-9]\d{4,10})/ },
+      number:   { name: '🔢 数字',   re: /\d+(?:\.\d+)?/ },
+    };
+
+    const input = document.getElementById('input');
+    const resultsEl = document.getElementById('results');
+    const summaryEl = document.getElementById('summary');
+    const typeChips = document.querySelectorAll('.type-chip');
+    const fileInput = document.getElementById('fileInput');
+    const exportBar = document.getElementById('exportBar');
+
+    let lastResults = []; // 保存最近一次提取结果，供导出用
+
+    // 点击标签切换选中状态
+    typeChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const box = chip.querySelector('input');
+        box.checked = !box.checked;
+        chip.classList.toggle('on', box.checked);
+      });
+    });
+
+    // 用正则提取；若有捕获组，取第一个非空捕获组的值，否则取整个匹配
+    function collect(pattern, text) {
+      const re = new RegExp(pattern.source, 'g');
+      const out = [];
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        let val = m[0];
+        for (let i = 1; i < m.length; i++) {
+          if (m[i] !== undefined) { val = m[i]; break; }
+        }
+        out.push(val);
+      }
+      return out;
+    }
+
+    // 提取逻辑
+    function extract() {
+      const text = input.value.trim();
+      if (!text) {
+        summaryEl.innerHTML = '';
+        exportBar.style.display = 'none';
+        resultsEl.innerHTML = '<div class="empty">请先粘贴文本、或拖入文件 👆</div>';
+        return;
+      }
+
+      const selected = [...typeChips]
+        .filter(c => c.querySelector('input').checked)
+        .map(c => c.querySelector('input').value);
+
+      lastResults = [];
+      let total = 0;
+      let html = '';
+
+      selected.forEach(key => {
+        const rule = RULES[key];
+        const matches = collect(rule.re, text);
+        const unique = [...new Set(matches)]; // 去重
+        total += unique.length;
+        lastResults.push({ name: rule.name, values: unique });
+
+        html += '<div class="result-group">';
+        html += '<div class="result-head">';
+        html += '<span class="name">' + rule.name + '</span>';
+        html += '<span class="count">' + unique.length + '</span>';
+        if (unique.length) {
+          html += '<button class="copy" data-text="' + unique.join('\n').replace(/"/g, '&quot;') + '">复制</button>';
+        }
+        html += '</div>';
+        if (unique.length) {
+          html += '<div class="tags">';
+          unique.forEach(v => { html += '<span class="tag">' + v + '</span>'; });
+          html += '</div>';
+        } else {
+          html += '<div class="tags"><span style="color:#9ca3af;font-size:13px;">没有提取到</span></div>';
+        }
+        html += '</div>';
+      });
+
+      summaryEl.innerHTML = '共提取 <b>' + total + '</b> 条数据';
+      exportBar.style.display = (total > 0) ? 'flex' : 'none';
+      resultsEl.innerHTML = html;
+
+      // 给复制按钮绑定事件
+      document.querySelectorAll('.copy').forEach(btn => {
+        btn.addEventListener('click', () => {
+          navigator.clipboard.writeText(btn.dataset.text).then(() => {
+            btn.textContent = '已复制 ✓';
+            setTimeout(() => (btn.textContent = '复制'), 1500);
+          });
+        });
+      });
+    }
+
+    // 下载文件
+    function download(filename, content, mime) {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // 导出 TXT
+    document.getElementById('exportTxt').addEventListener('click', () => {
+      const total = lastResults.reduce((s, g) => s + g.values.length, 0);
+      let txt = '文本提取结果（共 ' + total + ' 条）\n';
+      txt += '生成时间：' + new Date().toLocaleString() + '\n';
+      txt += '================================\n\n';
+      lastResults.forEach(g => {
+        txt += '【' + g.name + '】(' + g.values.length + '条)\n';
+        txt += g.values.length ? g.values.join('\n') + '\n' : '（无）\n';
+        txt += '\n';
+      });
+      download('文本提取结果.txt', txt, 'text/plain;charset=utf-8');
+    });
+
+    // 导出 CSV（Excel 可直接打开，加 BOM 避免中文乱码）
+    document.getElementById('exportCsv').addEventListener('click', () => {
+      let csv = '﻿类型,值\n';
+      lastResults.forEach(g => {
+        const label = g.name.replace(/[^一-龥A-Za-z]/g, '');
+        g.values.forEach(v => { csv += label + ',' + v + '\n'; });
+      });
+      download('文本提取结果.csv', csv, 'text/csv;charset=utf-8');
+    });
+
+    // —— 文件导入功能 ——
+    // 处理一个文件：读取内容 -> 填到输入框 -> 自动提取
+    function handleFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+
+      if (['txt', 'csv'].includes(ext)) {
+        // 文本类文件：直接读成文字
+        const reader = new FileReader();
+        reader.onload = e => {
+          input.value = e.target.result;
+          extract();
+        };
+        reader.readAsText(file);
+      } else if (['xlsx', 'xls'].includes(ext)) {
+        // Excel 文件：需要 SheetJS 解析
+        if (typeof XLSX === 'undefined') {
+          alert('解析 Excel 需要联网加载组件，暂时不可用。\n你可以把 Excel 另存为 CSV 格式再导入。');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = e => {
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, { type: 'array' });
+          let text = '';
+          // 遍历所有工作表、所有单元格，拼成一段文本
+          wb.SheetNames.forEach(name => {
+            const ws = wb.Sheets[name];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+            rows.forEach(row => {
+              text += row.join(' ') + '\n';
+            });
+          });
+          input.value = text;
+          extract();
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        alert('暂不支持这种文件格式。支持：.txt / .csv / .xlsx / .xls');
+      }
+    }
+
+    // 点「导入文件」按钮 -> 弹出文件选择框
+    document.getElementById('import').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => {
+      if (e.target.files[0]) handleFile(e.target.files[0]);
+      fileInput.value = ''; // 清空，方便重复选择同一文件
+    });
+
+    // 拖拽文件到输入框
+    input.addEventListener('dragover', e => {
+      e.preventDefault();
+      input.classList.add('dragover');
+    });
+    input.addEventListener('dragleave', () => input.classList.remove('dragover'));
+    input.addEventListener('drop', e => {
+      e.preventDefault();
+      input.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+
+    // 载入示例数据
+    document.getElementById('sample').addEventListener('click', () => {
+      input.value = [
+        '1. 张三 手机：13812345678 邮箱：zhangsan@example.com 座机：010-87654321 微信：zhangsan_888 QQ：12345678',
+        '2. 李四 电话：15998765432 邮箱：lisi@test.com 地址：上海市浦东新区',
+        '3. 王五 手机：17612345678 邮箱：wangwu@mail.cn 微信：wxid_wangwu2024',
+        '4. 赵六 手机：13666668888 邮箱：zhaoliu@company.org QQ：987654321',
+        '会议安排：季度会议 2024年3月15日，项目截止 2024/03/20，面试 2024-06-01',
+        '公司官网：https://www.example.com/products 博客：http://blog.example.com 招聘：https://jobs.example.com/campus',
+        '服务器IP：192.168.1.100 和 10.0.0.1',
+        '身份证号：110101199003071234 和 310101198805154321',
+        '银行卡号：6222 0202 1234 5678',
+        '财务：订单金额 ￥1288.50 元，采购成本 23800.00 元，月销售额 $5000，库存 300 件，快递单号 7501234567890',
+        '客服热线：400-800-1234',
+      ].join('\n');
+      extract();
+    });
+
+    // 清空
+    document.getElementById('clear').addEventListener('click', () => {
+      input.value = '';
+      summaryEl.innerHTML = '';
+      exportBar.style.display = 'none';
+      resultsEl.innerHTML = '<div class="empty">结果会显示在这里</div>';
+    });
+
+    // 提取
+    document.getElementById('run').addEventListener('click', extract);
+  </script>
+</body>
+</html>

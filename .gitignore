@@ -1,0 +1,14 @@
+# ===== 密钥文件，绝不能上传到网上 =====
+.env
+
+# ===== 测试用的临时文件（转换器生成的测试产物）=====
+doc-converter/uploads/
+doc-converter/测试表格.xlsx
+
+# ===== Python 缓存（自动生成，不用上传）=====
+__pycache__/
+*.pyc
+
+# ===== 虚拟环境 =====
+.venv/
+venv/

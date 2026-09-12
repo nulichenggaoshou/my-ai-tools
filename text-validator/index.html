@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>格式验证器</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --ok: #16a34a;
+      --no: #9ca3af;
+      --bad: #dc2626;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+    .container { max-width: 560px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 28px; font-weight: 700; }
+    header p { color: var(--muted); margin-top: 6px; font-size: 15px; }
+    header a { color: var(--primary); text-decoration: none; font-size: 14px; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .tab {
+      border: 1px solid var(--border); background: #fff; color: var(--muted);
+      padding: 8px 14px; border-radius: 999px; font-size: 14px; cursor: pointer;
+      transition: all .15s; font-family: inherit;
+    }
+    .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="text"]:focus { border-color: var(--primary); }
+
+    .samples { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .samples .label { font-size: 13px; color: var(--muted); }
+    .sample {
+      font-size: 13px; padding: 4px 10px; border-radius: 999px;
+      border: 1px solid var(--border); background: #fff; cursor: pointer;
+      font-family: ui-monospace, Consolas, monospace;
+      transition: all .15s;
+    }
+    .sample:hover { border-color: var(--primary); color: var(--primary); }
+
+    .result-big {
+      text-align: center; font-size: 22px; font-weight: 700;
+      padding: 24px; border-radius: 14px; margin-bottom: 16px;
+      border: 2px dashed var(--border); color: var(--no);
+    }
+    .result-big.ok { border-color: var(--ok); color: var(--ok); background: #f0fdf4; }
+    .result-big.no { border-color: #fca5a5; color: var(--bad); background: #fef2f2; }
+
+    .type-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 6px; border-bottom: 1px solid #f3f4f6;
+      font-size: 15px;
+    }
+    .type-row:last-child { border-bottom: none; }
+    .type-row .mark { font-weight: 700; }
+    .type-row .mark.ok { color: var(--ok); }
+    .type-row .mark.no { color: #d1d5db; }
+    .type-row.dim { opacity: 0.45; }
+    .type-row.hit { background: #f0fdf4; border-radius: 8px; }
+
+    /* 信息卡片（身份证 / 运营商） */
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 14px; }
+    .info-card {
+      background: #fafbfc; border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px; text-align: center;
+    }
+    .info-card .v { font-size: 22px; font-weight: 800; color: var(--primary); }
+    .info-card .l { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .info-card.valid { background: #f0fdf4; border-color: #bbf7d0; }
+    .info-card.valid .v { color: var(--ok); }
+    .info-card.invalid { background: #fef2f2; border-color: #fecaca; }
+    .info-card.invalid .v { color: var(--bad); }
+
+    /* 密码强度条 */
+    .pwd-bar { display: flex; gap: 6px; margin: 14px 0; }
+    .pwd-bar .seg { flex: 1; height: 12px; border-radius: 6px; background: #e5e7eb; transition: background .2s; }
+    .pwd-level { text-align: center; font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+
+    footer { text-align: center; color: #9ca3af; font-size: 13px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>✅ 格式验证器</h1>
+      <p>验证格式、解码身份证、查运营商、测密码强度</p>
+      <a href="../index.html">← 返回工具集</a>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-mode="validate">✅ 格式验证</button>
+      <button class="tab" data-mode="idcard">🪪 身份证解码</button>
+      <button class="tab" data-mode="phone">📱 运营商查询</button>
+      <button class="tab" data-mode="pwd">🔐 密码强度</button>
+    </div>
+
+    <!-- ① 格式验证 -->
+    <div class="panel" id="panel-validate">
+      <div class="card">
+        <input type="text" id="input" placeholder="输入要判断的内容，例如：13812345678">
+        <div class="samples">
+          <span class="label">试试：</span>
+          <span class="sample" data-v="13812345678">13812345678</span>
+          <span class="sample" data-v="abc@test.com">abc@test.com</span>
+          <span class="sample" data-v="110101199003071233">身份证号</span>
+          <span class="sample" data-v="https://example.com">网址</span>
+          <span class="sample" data-v="￥1288.50">金额</span>
+          <span class="sample" data-v="随便写点东西">乱写</span>
+        </div>
+      </div>
+      <div class="result-big" id="result">请输入要判断的内容</div>
+      <div class="card" id="typeList"></div>
+    </div>
+
+    <!-- ② 身份证解码 -->
+    <div class="panel" id="panel-idcard" style="display:none">
+      <div class="card">
+        <input type="text" id="idcardInput" placeholder="输入 18 位身份证号，例如：110101199003071233">
+        <div class="samples">
+          <span class="label">试试：</span>
+          <span class="sample" data-id="110101199003071233">男（校验通过）</span>
+          <span class="sample" data-id="110101199003071225">女（校验通过）</span>
+          <span class="sample" data-id="110101199003071234">假号（校验失败）</span>
+        </div>
+      </div>
+      <div class="result-big" id="idcardResult">请输入身份证号</div>
+      <div class="info-grid" id="idcardInfo"></div>
+    </div>
+
+    <!-- ③ 运营商查询 -->
+    <div class="panel" id="panel-phone" style="display:none">
+      <div class="card">
+        <input type="text" id="phoneInput" placeholder="输入 11 位手机号，例如：13812345678">
+        <div class="samples">
+          <span class="label">试试：</span>
+          <span class="sample" data-ph="13812345678">移动</span>
+          <span class="sample" data-ph="18612345678">联通</span>
+          <span class="sample" data-ph="18912345678">电信</span>
+          <span class="sample" data-ph="19212345678">广电</span>
+        </div>
+      </div>
+      <div class="result-big" id="phoneResult">请输入手机号</div>
+      <div class="info-grid" id="phoneInfo"></div>
+    </div>
+
+    <!-- ④ 密码强度 -->
+    <div class="panel" id="panel-pwd" style="display:none">
+      <div class="card">
+        <input type="text" id="pwdInput" placeholder="输入密码，例如：Abc123!@#">
+        <div class="samples">
+          <span class="label">试试：</span>
+          <span class="sample" data-pw="123456">弱</span>
+          <span class="sample" data-pw="abc12345">中</span>
+          <span class="sample" data-pw="Abc123!@#">强</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="pwd-level" id="pwdLevel">请输入密码</div>
+        <div class="pwd-bar" id="pwdBar"></div>
+        <div id="pwdChecks"></div>
+      </div>
+    </div>
+
+    <footer>我的第三个 AI 小工具 · 正则 test + 身份证解码 + 密码强度</footer>
+  </div>
+
+  <script>
+    // ============ 标签页切换 ============
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const mode = tab.dataset.mode;
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+        document.getElementById('panel-' + mode).style.display = 'block';
+      });
+    });
+
+    // ============ ① 格式验证 ============
+    const TYPES = [
+      { name: '📱 手机号', re: /^1[3-9]\d{9}$/ },
+      { name: '📧 邮箱',   re: /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/ },
+      { name: '🔗 网址',   re: /^https?:\/\/\S+$/ },
+      { name: '📅 日期',   re: /^\d{4}[年\/\-]\d{1,2}[月\/\-]\d{1,2}日?$/ },
+      { name: '🆔 身份证', re: /^\d{17}[\dXx]$/ },
+      { name: '💰 金额',   re: /^(?:[￥¥$€]\s*\d+(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?\s*[元块])$/ },
+      { name: '🐧 QQ号',   re: /^[1-9]\d{4,9}$/ },
+      { name: '💬 微信号', re: /^[a-zA-Z][a-zA-Z0-9_-]{5,19}$/ },
+    ];
+    const input = document.getElementById('input');
+    const result = document.getElementById('result');
+    const typeList = document.getElementById('typeList');
+
+    function validate() {
+      const s = input.value.trim();
+      if (!s) {
+        result.textContent = '请输入要判断的内容';
+        result.className = 'result-big';
+        typeList.innerHTML = '';
+        return;
+      }
+      const hit = TYPES.find(t => t.re.test(s));
+      let html = '';
+      TYPES.forEach(t => {
+        const ok = t.re.test(s);
+        html += '<div class="type-row' + (ok ? ' hit' : ' dim') + '">' +
+                  '<span>' + t.name + '</span>' +
+                  '<span class="mark ' + (ok ? 'ok' : 'no') + '">' + (ok ? '✓' : '✗') + '</span>' +
+                '</div>';
+      });
+      typeList.innerHTML = html;
+      if (hit) {
+        result.textContent = '✅ 这是 ' + hit.name;
+        result.className = 'result-big ok';
+      } else {
+        result.textContent = '❌ 没有匹配上任何类型';
+        result.className = 'result-big no';
+      }
+    }
+    input.addEventListener('input', validate);
+
+    // ============ ② 身份证解码 ============
+    const idcardInput = document.getElementById('idcardInput');
+    const idcardResult = document.getElementById('idcardResult');
+    const idcardInfo = document.getElementById('idcardInfo');
+
+    // 身份证第 18 位校验码的算法：前 17 位 × 固定权重 → 求和 → 对 11 取模 → 查表
+    const WEIGHTS = [7,9,10,5,8,4,2,1,6,3,7,9,10,5,8,4,2];
+    const CHECK_MAP = ['1','0','X','9','8','7','6','5','4','3','2'];
+
+    function checkIdcard() {
+      const s = idcardInput.value.trim();
+      if (!s) {
+        idcardResult.textContent = '请输入身份证号';
+        idcardResult.className = 'result-big';
+        idcardInfo.innerHTML = '';
+        return;
+      }
+      if (!/^\d{17}[\dXx]$/.test(s)) {
+        idcardResult.textContent = '❌ 格式不对：应为 18 位，末位可为 X';
+        idcardResult.className = 'result-big no';
+        idcardInfo.innerHTML = '';
+        return;
+      }
+
+      // 解码：第 7~14 位是生日，第 17 位奇偶决定性别
+      const birth = s.slice(6, 14);
+      const year = +birth.slice(0, 4), month = birth.slice(4, 6), day = birth.slice(6, 8);
+      const sexCode = +s.slice(16, 17);
+      const sex = sexCode % 2 === 1 ? '男' : '女';
+
+      // 年龄（考虑今年生日过没过）
+      const now = new Date();
+      let age = now.getFullYear() - year;
+      const m = now.getMonth() + 1, d = now.getDate();
+      if (m < +month || (m === +month && d < +day)) age--;
+
+      // 校验码真伪
+      let sum = 0;
+      for (let i = 0; i < 17; i++) sum += +s[i] * WEIGHTS[i];
+      const expect = CHECK_MAP[sum % 11];
+      const valid = s[17].toUpperCase() === expect;
+
+      idcardResult.textContent = valid ? '✅ 身份证格式正确、校验通过' : '⚠️ 格式对，但校验码不对（可能是假号/输错了）';
+      idcardResult.className = 'result-big ' + (valid ? 'ok' : 'no');
+
+      idcardInfo.innerHTML =
+        '<div class="info-card"><div class="v">' + year + '年' + month + '月' + day + '日</div><div class="l">出生日期</div></div>' +
+        '<div class="info-card"><div class="v">' + age + ' 岁</div><div class="l">年龄</div></div>' +
+        '<div class="info-card"><div class="v">' + sex + '</div><div class="l">性别</div></div>' +
+        '<div class="info-card ' + (valid ? 'valid' : 'invalid') + '"><div class="v">' + (valid ? '通过' : '失败') + '</div><div class="l">校验码</div></div>';
+    }
+    idcardInput.addEventListener('input', checkIdcard);
+
+    // ============ ③ 运营商查询 ============
+    const phoneInput = document.getElementById('phoneInput');
+    const phoneResult = document.getElementById('phoneResult');
+    const phoneInfo = document.getElementById('phoneInfo');
+
+    // 号段表（前 3 位）—— 数据驱动：查表而不是写一堆 if
+    const CARRIERS = [
+      { name: '中国移动', color: '#16a34a', prefixes: ['134','135','136','137','138','139','147','148','150','151','152','157','158','159','172','178','182','183','184','187','188','195','197','198'] },
+      { name: '中国联通', color: '#dc2626', prefixes: ['130','131','132','145','146','155','156','166','167','171','175','176','185','186','196'] },
+      { name: '中国电信', color: '#4f46e5', prefixes: ['133','149','153','173','174','177','180','181','189','190','191','193','199'] },
+      { name: '中国广电', color: '#d97706', prefixes: ['192'] },
+    ];
+
+    function checkPhone() {
+      const s = phoneInput.value.trim();
+      if (!s) {
+        phoneResult.textContent = '请输入手机号';
+        phoneResult.className = 'result-big';
+        phoneInfo.innerHTML = '';
+        return;
+      }
+      if (!/^1[3-9]\d{9}$/.test(s)) {
+        phoneResult.textContent = '❌ 不是合法的 11 位手机号';
+        phoneResult.className = 'result-big no';
+        phoneInfo.innerHTML = '';
+        return;
+      }
+      const p3 = s.slice(0, 3);
+      const hit = CARRIERS.find(c => c.prefixes.includes(p3));
+      if (!hit) {
+        phoneResult.textContent = '❓ 号段 ' + p3 + ' 暂未收录';
+        phoneResult.className = 'result-big no';
+        phoneInfo.innerHTML = '';
+        return;
+      }
+      phoneResult.textContent = '📱 ' + hit.name;
+      phoneResult.className = 'result-big ok';
+      phoneInfo.innerHTML =
+        '<div class="info-card valid"><div class="v">' + hit.name + '</div><div class="l">运营商</div></div>' +
+        '<div class="info-card"><div class="v">' + p3 + '</div><div class="l">号段（前 3 位）</div></div>';
+    }
+    phoneInput.addEventListener('input', checkPhone);
+
+    // ============ ④ 密码强度 ============
+    const pwdInput = document.getElementById('pwdInput');
+    const pwdLevel = document.getElementById('pwdLevel');
+    const pwdBar = document.getElementById('pwdBar');
+    const pwdChecks = document.getElementById('pwdChecks');
+
+    const PWD_LEVELS = ['很弱', '弱', '中', '强', '很强'];
+    const PWD_COLORS = ['#dc2626', '#f97316', '#eab308', '#16a34a', '#16a34a'];
+
+    function checkPwd() {
+      const s = pwdInput.value;
+      if (!s) {
+        pwdLevel.textContent = '请输入密码';
+        pwdLevel.style.color = 'var(--muted)';
+        pwdBar.innerHTML = '';
+        pwdChecks.innerHTML = '';
+        return;
+      }
+
+      // 5 项检查，每项通过 +1 分
+      const checks = [
+        { tip: '至少 8 位', ok: s.length >= 8 },
+        { tip: '包含数字', ok: /\d/.test(s) },
+        { tip: '包含小写字母', ok: /[a-z]/.test(s) },
+        { tip: '包含大写字母', ok: /[A-Z]/.test(s) },
+        { tip: '包含特殊符号', ok: /[^A-Za-z0-9]/.test(s) },
+      ];
+      const score = checks.filter(c => c.ok).length;
+
+      // 分数 → 等级（0~5 分）
+      const level = PWD_LEVELS[score];
+      pwdLevel.textContent = level;
+      pwdLevel.style.color = PWD_COLORS[score];
+
+      // 强度条：前 score 格点亮
+      pwdBar.innerHTML = checks.map((c, i) =>
+        '<span class="seg' + (c.ok ? ' on' : '') + '" style="' + (c.ok ? 'background:' + PWD_COLORS[score] : '') + '"></span>'
+      ).join('');
+
+      // 检查清单 + 建议
+      pwdChecks.innerHTML = checks.map(c =>
+        '<div class="type-row' + (c.ok ? ' hit' : ' dim') + '">' +
+          '<span>' + c.tip + '</span>' +
+          '<span class="mark ' + (c.ok ? 'ok' : 'no') + '">' + (c.ok ? '✓' : '✗') + '</span>' +
+        '</div>'
+      ).join('');
+    }
+    pwdInput.addEventListener('input', checkPwd);
+
+    // ============ 示例点击填入（各 tab 分别绑定）============
+    document.querySelectorAll('#panel-validate .sample').forEach(el => {
+      el.addEventListener('click', () => { input.value = el.dataset.v; validate(); });
+    });
+    document.querySelectorAll('#panel-idcard .sample').forEach(el => {
+      el.addEventListener('click', () => { idcardInput.value = el.dataset.id; checkIdcard(); });
+    });
+    document.querySelectorAll('#panel-phone .sample').forEach(el => {
+      el.addEventListener('click', () => { phoneInput.value = el.dataset.ph; checkPhone(); });
+    });
+    document.querySelectorAll('#panel-pwd .sample').forEach(el => {
+      el.addEventListener('click', () => { pwdInput.value = el.dataset.pw; checkPwd(); });
+    });
+  </script>
+</body>
+</html>

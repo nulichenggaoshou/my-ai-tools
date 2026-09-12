@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本批量清洗工具</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --tag-bg: #eef2ff;
+      --tag-text: #4338ca;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 28px; font-weight: 700; }
+    header p { color: var(--muted); margin-top: 6px; font-size: 15px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 15px;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color .15s;
+    }
+    textarea:focus { border-color: var(--primary); }
+    textarea.dragover { border-color: var(--primary); border-style: dashed; background: #f5f6ff; }
+    textarea[readonly] { background: #fafbfc; }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+    .type-label { font-weight: 600; font-size: 14px; color: var(--muted); margin-right: 2px; }
+    .types { display: flex; flex-wrap: wrap; gap: 8px; }
+    .type-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px; cursor: pointer;
+      border: 1px solid var(--border); background: #fff; font-size: 14px;
+      user-select: none; transition: all .15s;
+    }
+    .type-chip input { display: none; }
+    .type-chip.on { background: var(--tag-bg); border-color: var(--primary); color: var(--tag-text); font-weight: 600; }
+
+    .actions { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+    button {
+      border: none; border-radius: 9px; padding: 10px 18px;
+      font-size: 15px; cursor: pointer; transition: all .15s; font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: #fff; font-weight: 600; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: #f3f4f6; }
+
+    .file-hint { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+    .out-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .out-head .out-title { font-weight: 700; font-size: 15px; }
+    .out-head .stat { font-size: 13px; color: var(--muted); }
+    .out-head .out-actions { margin-left: auto; display: flex; gap: 8px; }
+    footer { text-align: center; color: #9ca3af; font-size: 13px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🧹 文本批量清洗工具</h1>
+      <p>粘贴文字，一键去空格、删空行、去重复、手机号打码、加序号……</p>
+    </header>
+
+    <div class="card">
+      <textarea id="input" placeholder="把需要清洗的文字粘贴到这里，或拖入 .txt 文件……"></textarea>
+      <div class="file-hint">💡 支持拖入 .txt 文件；下面勾选要执行的清洗规则（按顺序执行）</div>
+      <div class="toolbar">
+        <span class="type-label">清洗规则：</span>
+        <div class="types" id="rules">
+          <label class="type-chip on"><input type="checkbox" value="trimline" checked> ✂️ 去行首尾空格</label>
+          <label class="type-chip on"><input type="checkbox" value="noempty" checked> 🗑 删除空行</label>
+          <label class="type-chip on"><input type="checkbox" value="dedup" checked> ♻️ 去重复行</label>
+          <label class="type-chip on"><input type="checkbox" value="nospace"> 🧹 压缩多余空格</label>
+          <label class="type-chip on"><input type="checkbox" value="maskphone"> 📱 手机号打码</label>
+          <label class="type-chip on"><input type="checkbox" value="number"> 🔢 每行加序号</label>
+        </div>
+        <div class="actions">
+          <button class="btn-ghost" id="import">📁 导入文件</button>
+          <input type="file" id="fileInput" accept=".txt,.csv" style="display:none">
+          <button class="btn-ghost" id="sample">载入示例</button>
+          <button class="btn-ghost" id="clear">清空</button>
+          <button class="btn-primary" id="run">开始清洗</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="out-head">
+        <span class="out-title">✅ 清洗结果</span>
+        <span class="stat" id="stat"></span>
+        <div class="out-actions">
+          <button class="btn-ghost" id="copy">📋 复制结果</button>
+          <button class="btn-ghost" id="download">💾 下载 .txt</button>
+        </div>
+      </div>
+      <textarea id="output" readonly placeholder="清洗后的结果会显示在这里……"></textarea>
+    </div>
+
+    <footer>我的第二个 AI 小工具 · 纯网页版，双击即可使用</footer>
+  </div>
+
+  <script>
+    // 清洗规则（按数组顺序依次执行）
+    const CLEANERS = [
+      { key: 'trimline',  run: t => t.split('\n').map(s => s.trim()).join('\n') },
+      { key: 'noempty',   run: t => t.split('\n').filter(s => s.trim() !== '').join('\n') },
+      { key: 'dedup',     run: t => [...new Set(t.split('\n').map(s => s.trim()))].join('\n') },
+      { key: 'nospace',   run: t => t.replace(/[ \t]+/g, ' ') },
+      { key: 'maskphone', run: t => t.replace(/(1[3-9]\d)\d{4}(\d{4})/g, '$1****$2') },
+      { key: 'number',    run: t => t.split('\n').filter(s => s.trim() !== '').map((s, i) => (i + 1) + '. ' + s).join('\n') },
+    ];
+
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const stat = document.getElementById('stat');
+    const ruleChips = document.querySelectorAll('#rules .type-chip');
+    const fileInput = document.getElementById('fileInput');
+
+    // 点击规则切换选中
+    ruleChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const box = chip.querySelector('input');
+        box.checked = !box.checked;
+        chip.classList.toggle('on', box.checked);
+      });
+    });
+
+    // 核心：按勾选顺序，一条条应用规则
+    function clean() {
+      const text = input.value;
+      if (!text.trim()) {
+        output.value = '';
+        stat.textContent = '';
+        return;
+      }
+
+      const selected = [...ruleChips]
+        .filter(c => c.querySelector('input').checked)
+        .map(c => c.querySelector('input').value);
+
+      let result = text;
+      selected.forEach(key => {
+        const rule = CLEANERS.find(r => r.key === key);
+        if (rule) result = rule.run(result);
+      });
+
+      const inLines = text.split('\n').filter(s => s.trim() !== '').length;
+      const outLines = result.split('\n').filter(s => s.trim() !== '').length;
+      output.value = result;
+      stat.textContent = inLines + ' 行 → ' + outLines + ' 行';
+    }
+
+    // 下载
+    function download(filename, content, mime) {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // 复制结果
+    document.getElementById('copy').addEventListener('click', () => {
+      if (!output.value) return;
+      navigator.clipboard.writeText(output.value).then(() => {
+        const btn = document.getElementById('copy');
+        btn.textContent = '已复制 ✓';
+        setTimeout(() => (btn.textContent = '📋 复制结果'), 1500);
+      });
+    });
+
+    // 下载结果
+    document.getElementById('download').addEventListener('click', () => {
+      if (!output.value) return;
+      download('清洗结果.txt', output.value, 'text/plain;charset=utf-8');
+    });
+
+    // 文件导入
+    function handleFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (['txt', 'csv'].includes(ext)) {
+        const reader = new FileReader();
+        reader.onload = e => { input.value = e.target.result; clean(); };
+        reader.readAsText(file);
+      } else {
+        alert('支持：.txt / .csv');
+      }
+    }
+
+    document.getElementById('import').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => {
+      if (e.target.files[0]) handleFile(e.target.files[0]);
+      fileInput.value = '';
+    });
+
+    input.addEventListener('dragover', e => { e.preventDefault(); input.classList.add('dragover'); });
+    input.addEventListener('dragleave', () => input.classList.remove('dragover'));
+    input.addEventListener('drop', e => {
+      e.preventDefault();
+      input.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+
+    // 载入示例
+    document.getElementById('sample').addEventListener('click', () => {
+      input.value = [
+        '张三   13812345678   zhangsan@example.com',
+        '',
+        '李四  15998765432  lisi@test.com',
+        '  王五 17612345678  wangwu@mail.cn  ',
+        '',
+        '李四  15998765432  lisi@test.com',
+        '赵六  13666668888  zhaoliu@company.org',
+      ].join('\n');
+      clean();
+    });
+
+    // 清空
+    document.getElementById('clear').addEventListener('click', () => {
+      input.value = '';
+      output.value = '';
+      stat.textContent = '';
+    });
+
+    // 开始清洗
+    document.getElementById('run').addEventListener('click', clean);
+  </script>
+</body>
+</html>

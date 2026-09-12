@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据格式转换器</title>
+  <!-- SheetJS：读取 Excel 文件 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --ok: #16a34a;
+      --bad: #dc2626;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 28px; font-weight: 700; }
+    header p { color: var(--muted); margin-top: 6px; font-size: 15px; }
+    header a { color: var(--primary); text-decoration: none; font-size: 14px; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .tab {
+      border: 1px solid var(--border); background: #fff; color: var(--muted);
+      padding: 8px 16px; border-radius: 999px; font-size: 14px; cursor: pointer;
+      transition: all .15s; font-family: inherit;
+    }
+    .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 14px;
+      font-family: ui-monospace, Consolas, monospace;
+      resize: vertical;
+      outline: none;
+      transition: border-color .15s;
+    }
+    textarea:focus { border-color: var(--primary); }
+    textarea[readonly] { background: #fafbfc; }
+
+    .drop-zone {
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: 40px; text-align: center; color: var(--muted); font-size: 15px;
+      cursor: pointer; transition: all .15s;
+    }
+    .drop-zone:hover, .drop-zone.over { border-color: var(--primary); color: var(--primary); background: #f5f6ff; }
+
+    .toolbar { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+    button {
+      border: none; border-radius: 9px; padding: 10px 18px;
+      font-size: 15px; cursor: pointer; transition: all .15s; font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: #fff; font-weight: 600; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: #f3f4f6; }
+
+    .out-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .out-head .title { font-weight: 700; font-size: 15px; }
+    .out-head .stat { font-size: 13px; color: var(--muted); }
+    .out-head .actions { margin-left: auto; display: flex; gap: 8px; }
+
+    footer { text-align: center; color: #9ca3af; font-size: 13px; margin-top: 24px; }
+
+    /* 打印（导出 PDF）时只显示输出 */
+    @media print {
+      header, .tabs, .input-card, .out-head { display: none !important; }
+      body { background: #fff; padding: 8px; }
+      .card { border: none; box-shadow: none; padding: 0; }
+      textarea { min-height: auto; border: none; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📦 数据格式转换器</h1>
+      <p>CSV ↔ JSON、读取 Excel、导出 PDF —— 让数据换个格式继续用</p>
+      <a href="../index.html">← 返回工具集</a>
+    </header>
+
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-mode="csv2json">CSV → JSON</button>
+      <button class="tab" data-mode="json2csv">JSON → CSV</button>
+      <button class="tab" data-mode="excel2csv">Excel → CSV</button>
+    </div>
+
+    <div class="card input-card">
+      <textarea id="input" placeholder="粘贴 CSV 文本，例如：&#10;姓名,年龄,城市&#10;张三,28,北京&#10;李四,25,上海"></textarea>
+      <div class="drop-zone" id="dropZone" style="display:none">📁 点击选择或把 .xlsx 文件拖到这里</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+
+      <div class="toolbar">
+        <button class="btn-primary" id="convert">转换</button>
+        <button class="btn-ghost" id="sample">载入示例</button>
+        <button class="btn-ghost" id="clear">清空</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="out-head">
+        <span class="title">✅ 输出结果</span>
+        <span class="stat" id="stat"></span>
+        <div class="actions">
+          <button class="btn-ghost" id="copy">📋 复制</button>
+          <button class="btn-ghost" id="download">💾 下载</button>
+          <button class="btn-ghost" id="toPdf">🖨 导出 PDF</button>
+        </div>
+      </div>
+      <textarea id="output" readonly placeholder="转换结果会显示在这里……"></textarea>
+    </div>
+
+    <footer>我的第六个 AI 小工具 · JSON 解析 + 错误处理 + 浏览器打印转 PDF</footer>
+  </div>
+
+  <script>
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const stat = document.getElementById('stat');
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    let mode = 'csv2json';
+
+    // —— 模式切换 ——
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        mode = tab.dataset.mode;
+        input.value = '';
+        output.value = '';
+        stat.textContent = '';
+
+        if (mode === 'excel2csv') {
+          input.style.display = 'none';
+          dropZone.style.display = 'block';
+        } else {
+          input.style.display = 'block';
+          dropZone.style.display = 'none';
+          input.placeholder = (mode === 'csv2json')
+            ? '粘贴 CSV 文本，例如：\n姓名,年龄,城市\n张三,28,北京\n李四,25,上海'
+            : '粘贴 JSON 数组，例如：\n[{"姓名":"张三","年龄":28},{"姓名":"李四","年龄":25}]';
+        }
+      });
+    });
+
+    // —— CSV → JSON ——
+    function csvToJson(csv) {
+      const lines = csv.trim().split('\n').filter(s => s.trim() !== '');
+      if (lines.length < 2) throw new Error('CSV 至少需要一行表头 + 一行数据');
+      const headers = lines[0].split(',').map(h => h.trim());
+      return lines.slice(1).map(line => {
+        const vals = line.split(',');
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim(); });
+        return obj;
+      });
+    }
+
+    // —— JSON → CSV ——
+    function jsonToCsv(json) {
+      const arr = JSON.parse(json);                 // 这里可能报错，靠 try/catch 接住
+      if (!Array.isArray(arr) || arr.length === 0) throw new Error('JSON 顶层必须是「非空数组」');
+      const headers = Object.keys(arr[0]);          // 取第一条记录的所有字段当表头
+      const rows = arr.map(obj =>
+        headers.map(h => (obj[h] === undefined ? '' : obj[h])).join(',')
+      );
+      return headers.join(',') + '\n' + rows.join('\n');
+    }
+
+    // —— 核心转换（带错误处理）——
+    function convert() {
+      try {
+        if (mode === 'csv2json') {
+          const arr = csvToJson(input.value);
+          output.value = JSON.stringify(arr, null, 2);   // 第二个参数 null、第三个 2 = 缩进2空格，好看
+          stat.textContent = arr.length + ' 条记录';
+        } else if (mode === 'json2csv') {
+          output.value = jsonToCsv(input.value);
+          stat.textContent = output.value.split('\n').length - 1 + ' 行';
+        }
+      } catch (err) {
+        output.value = '❌ 出错：' + err.message;
+        stat.textContent = '';
+      }
+    }
+
+    document.getElementById('convert').addEventListener('click', convert);
+
+    // —— Excel → CSV ——
+    function handleExcel(file) {
+      if (typeof XLSX === 'undefined') {
+        output.value = '❌ 需要联网加载组件，暂时不可用。';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];        // 取第一个工作表
+          const csv = XLSX.utils.sheet_to_csv(ws);
+          output.value = csv;
+          stat.textContent = '工作表「' + wb.SheetNames[0] + '」已转换';
+        } catch (err) {
+          output.value = '❌ 解析失败：' + err.message;
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => {
+      if (e.target.files[0]) handleExcel(e.target.files[0]);
+      fileInput.value = '';
+    });
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('over');
+      if (e.dataTransfer.files[0]) handleExcel(e.dataTransfer.files[0]);
+    });
+
+    // —— 载入示例 ——
+    document.getElementById('sample').addEventListener('click', () => {
+      if (mode === 'csv2json') {
+        input.value = '姓名,年龄,城市\n张三,28,北京\n李四,25,上海\n王五,30,广州';
+        convert();
+      } else if (mode === 'json2csv') {
+        input.value = '[{"姓名":"张三","年龄":28,"城市":"北京"},{"姓名":"李四","年龄":25,"城市":"上海"}]';
+        convert();
+      } else {
+        output.value = '📁 Excel 模式：点击上方虚线框选择 .xlsx 文件';
+      }
+    });
+
+    // —— 清空 ——
+    document.getElementById('clear').addEventListener('click', () => {
+      input.value = '';
+      output.value = '';
+      stat.textContent = '';
+    });
+
+    // —— 复制 ——
+    document.getElementById('copy').addEventListener('click', () => {
+      if (!output.value) return;
+      navigator.clipboard.writeText(output.value).then(() => {
+        const btn = document.getElementById('copy');
+        btn.textContent = '已复制 ✓';
+        setTimeout(() => (btn.textContent = '📋 复制'), 1500);
+      });
+    });
+
+    // —— 下载 ——
+    document.getElementById('download').addEventListener('click', () => {
+      if (!output.value) return;
+      const ext = mode === 'excel2csv' ? 'csv' : (mode === 'csv2json' ? 'json' : 'csv');
+      const blob = new Blob([output.value], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '转换结果.' + ext;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // —— 导出 PDF：调起浏览器打印，选「另存为 PDF」——
+    document.getElementById('toPdf').addEventListener('click', () => {
+      if (!output.value) return;
+      window.print();
+    });
+  </script>
+</body>
+</html>

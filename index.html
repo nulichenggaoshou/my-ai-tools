@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的 AI 工具集</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --tag-bg: #eef2ff;
+      --tag-text: #4338ca;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 48px 16px;
+      line-height: 1.6;
+    }
+    .container { max-width: 960px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 40px; }
+    header h1 { font-size: 34px; font-weight: 800; letter-spacing: 1px; }
+    header h1 .emoji { display: block; font-size: 48px; margin-bottom: 8px; }
+    header p { color: var(--muted); margin-top: 10px; font-size: 16px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .tool-card {
+      display: block;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 26px 22px;
+      text-decoration: none;
+      color: var(--text);
+      transition: all .2s;
+      position: relative;
+    }
+    a.tool-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--primary);
+      box-shadow: 0 10px 24px rgba(79, 70, 229, 0.12);
+    }
+    .tool-card .icon { font-size: 40px; }
+    .tool-card h2 { font-size: 20px; font-weight: 700; margin: 12px 0 8px; }
+    .tool-card .desc { color: var(--muted); font-size: 14px; min-height: 44px; }
+    .tool-card .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+    .tool-card .tag {
+      background: var(--tag-bg); color: var(--tag-text);
+      font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    }
+    .tool-card .open {
+      display: inline-block; margin-top: 16px;
+      color: var(--primary); font-weight: 600; font-size: 14px;
+    }
+    a.tool-card:hover .open { text-decoration: underline; }
+
+    /* 开发中的卡片 */
+    .tool-card.coming {
+      opacity: 0.6;
+      border-style: dashed;
+      cursor: default;
+    }
+    .tool-card.coming:hover { transform: none; box-shadow: none; border-color: var(--border); }
+    .tool-card .badge {
+      position: absolute; top: 18px; right: 18px;
+      background: #fef3c7; color: #b45309;
+      font-size: 12px; padding: 3px 10px; border-radius: 999px; font-weight: 600;
+    }
+
+    footer {
+      text-align: center; color: #9ca3af; font-size: 13px;
+      margin-top: 48px;
+    }
+    footer a { color: var(--primary); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><span class="emoji">🔧</span>我的 AI 工具集</h1>
+      <p>从零开始，用 AI 一点点搭起来的效率小工具</p>
+    </header>
+
+    <div class="grid">
+      <a class="tool-card" href="text-extractor/index.html">
+        <div class="icon">🔍</div>
+        <h2>文本提取工具</h2>
+        <div class="desc">从文本或文件里，一键提取手机号、邮箱、网址、日期、身份证、银行卡、金额、座机、IP、微信、QQ 等。</div>
+        <div class="tags">
+          <span class="tag">正则 match</span>
+          <span class="tag">12 类提取</span>
+          <span class="tag">拖入文件</span>
+          <span class="tag">导出</span>
+        </div>
+        <span class="open">打开工具 →</span>
+      </a>
+
+      <a class="tool-card" href="text-cleaner/index.html">
+        <div class="icon">🧹</div>
+        <h2>文本清洗工具</h2>
+        <div class="desc">批量去空格、删空行、去重复行、手机号打码、加序号，一次搞定。</div>
+        <div class="tags">
+          <span class="tag">正则 replace</span>
+          <span class="tag">批量处理</span>
+          <span class="tag">去重</span>
+        </div>
+        <span class="open">打开工具 →</span>
+      </a>
+
+      <a class="tool-card" href="text-validator/index.html">
+        <div class="icon">✅</div>
+        <h2>格式验证器</h2>
+        <div class="desc">输入一串内容，判断它是手机号、邮箱、身份证，还是格式不对。</div>
+        <div class="tags">
+          <span class="tag">正则 test</span>
+          <span class="tag">if 判断</span>
+        </div>
+        <span class="open">打开工具 →</span>
+      </a>
+
+      <a class="tool-card" href="text-stats/index.html">
+        <div class="icon">📊</div>
+        <h2>文本统计工具</h2>
+        <div class="desc">统计字符、中英文、数字、行数，还能分析英文单词词频。</div>
+        <div class="tags">
+          <span class="tag">对象计数</span>
+          <span class="tag">排序</span>
+          <span class="tag">词频</span>
+        </div>
+        <span class="open">打开工具 →</span>
+      </a>
+
+      <a class="tool-card" href="qr-generator/index.html">
+        <div class="icon">📱</div>
+        <h2>二维码生成器</h2>
+        <div class="desc">网址、WiFi、名片三类内容，实时生成二维码，扫码即用，一键下载。</div>
+        <div class="tags">
+          <span class="tag">网址/WiFi/名片</span>
+          <span class="tag">实时生成</span>
+          <span class="tag">下载PNG</span>
+        </div>
+        <span class="open">打开工具 →</span>
+      </a>
+
+      <a class="tool-card" href="format-converter/index.html">
+        <div class="icon">📦</div>
+        <h2>数据格式转换器</h2>
+        <div class="desc">CSV ↔ JSON 互转、读取 Excel 表格、一键导出 PDF。</div>
+        <div class="tags">
+          <span class="tag">JSON</span>
+          <span class="tag">Excel</span>
+          <span class="tag">错误处理</span>
+        </div>
+        <span class="open">打开工具 →</span>
+      </a>
+
+      <a class="tool-card" href="http://127.0.0.1:5000" target="_blank">
+        <div class="icon">🔄</div>
+        <h2>文件格式转换器</h2>
+        <div class="desc">Word / PDF / Excel 三种格式互转，用 Python + Flask 做的第一个后端工具。</div>
+        <div class="tags">
+          <span class="tag">Python</span>
+          <span class="tag">Flask</span>
+          <span class="tag">后端</span>
+        </div>
+        <span class="open">打开工具 →</span>
+        <span class="badge">需启动服务</span>
+      </a>
+
+      <a class="tool-card" href="http://127.0.0.1:5001" target="_blank">
+        <div class="icon">✨</div>
+        <h2>AI 总结提炼工具</h2>
+        <div class="desc">粘贴一篇长文章，DeepSeek 大模型帮你一键总结成要点。</div>
+        <div class="tags">
+          <span class="tag">大模型 API</span>
+          <span class="tag">DeepSeek</span>
+          <span class="tag">AI</span>
+        </div>
+        <span class="open">打开工具 →</span>
+        <span class="badge">需启动服务</span>
+      </a>
+
+      <a class="tool-card" href="http://127.0.0.1:5002" target="_blank">
+        <div class="icon">🌐</div>
+        <h2>AI 翻译工具</h2>
+        <div class="desc">中英互译，可选风格，还能附上重点词汇解释。</div>
+        <div class="tags">
+          <span class="tag">大模型 API</span>
+          <span class="tag">翻译</span>
+          <span class="tag">AI</span>
+        </div>
+        <span class="open">打开工具 →</span>
+        <span class="badge">需启动服务</span>
+      </a>
+
+      <a class="tool-card" href="http://127.0.0.1:5003" target="_blank">
+        <div class="icon">💬</div>
+        <h2>AI 聊天助手</h2>
+        <div class="desc">像 ChatGPT 一样多轮对话，它记得你之前说过的话。</div>
+        <div class="tags">
+          <span class="tag">多轮对话</span>
+          <span class="tag">大模型 API</span>
+          <span class="tag">AI</span>
+        </div>
+        <span class="open">打开工具 →</span>
+        <span class="badge">需启动服务</span>
+      </a>
+    </div>
+
+    <footer>
+      持续更新中 · 我的第一个作品集 · 双击即可使用
+    </footer>
+  </div>
+</body>
+</html>

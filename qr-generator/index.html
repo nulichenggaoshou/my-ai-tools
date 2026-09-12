@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>二维码生成器</title>
+  <!-- node-qrcode 库：正确处理中文（UTF-8），支持颜色、尺寸（cdnjs 地址） -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.4.4/qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+    .container { max-width: 620px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 28px; font-weight: 700; }
+    header p { color: var(--muted); margin-top: 6px; font-size: 15px; }
+    header a { color: var(--primary); text-decoration: none; font-size: 14px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .type-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .type-tab {
+      border: 1px solid var(--border); background: #fff; color: var(--muted);
+      padding: 8px 14px; border-radius: 999px; font-size: 14px; cursor: pointer;
+      transition: all .15s; font-family: inherit;
+    }
+    .type-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+
+    .fields { display: none; }
+    .fields.show { display: block; }
+    .field-stack { display: flex; flex-direction: column; gap: 10px; }
+
+    input[type="text"], textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="text"]:focus, textarea:focus { border-color: var(--primary); }
+    textarea { min-height: 90px; resize: vertical; }
+    select {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; font-size: 14px; font-family: inherit; background: #fff;
+    }
+
+    .controls { display: flex; gap: 20px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
+    .ctl { display: flex; align-items: center; gap: 8px; }
+    .ctl .label { font-size: 13px; color: var(--muted); }
+    .colors { display: flex; gap: 8px; }
+    .color {
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 2px solid transparent; cursor: pointer;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+      transition: all .15s;
+    }
+    .color.active { border-color: var(--primary); transform: scale(1.15); }
+
+    .qrcode-box { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 10px 0; }
+    #qrcode { padding: 14px; background: #fff; border: 1px solid var(--border); border-radius: 12px; }
+    #qrcode img { display: block; max-width: 100%; height: auto; }
+    button {
+      border: none; border-radius: 9px; padding: 10px 18px;
+      font-size: 15px; cursor: pointer; transition: all .15s; font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: #fff; font-weight: 600; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-primary:disabled { background: #c7d2fe; cursor: not-allowed; }
+    .btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: #f3f4f6; }
+    .hint { font-size: 13px; color: #9ca3af; text-align: center; margin-top: 4px; }
+    footer { text-align: center; color: #9ca3af; font-size: 13px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📱 二维码生成器</h1>
+      <p>网址、WiFi、名片 —— 都能变成二维码，扫码即用（支持中文）</p>
+      <a href="../index.html">← 返回工具集</a>
+    </header>
+
+    <div class="card">
+      <div class="type-tabs">
+        <button class="type-tab active" data-type="url">🔗 网址</button>
+        <button class="type-tab" data-type="wifi">🏠 WiFi</button>
+        <button class="type-tab" data-type="vcard">📇 名片</button>
+      </div>
+
+      <!-- 网址 -->
+      <div class="fields show" id="field-url">
+        <input type="text" id="urlInput" placeholder="输入网址，比如：https://www.baidu.com">
+      </div>
+
+      <!-- WiFi -->
+      <div class="fields" id="field-wifi">
+        <div class="field-stack">
+          <input type="text" id="wifiName" placeholder="WiFi 名称（SSID），比如：Home_WiFi">
+          <input type="text" id="wifiPass" placeholder="WiFi 密码">
+          <select id="wifiEnc">
+            <option value="WPA">加密方式：WPA/WPA2</option>
+            <option value="WEP">加密方式：WEP</option>
+            <option value="nopass">无密码（开放网络）</option>
+          </select>
+          <div class="hint">生成后，手机相机/扫码工具扫一下，自动连接这个 WiFi</div>
+        </div>
+      </div>
+
+      <!-- 名片 -->
+      <div class="fields" id="field-vcard">
+        <div class="field-stack">
+          <input type="text" id="vName" placeholder="姓名">
+          <input type="text" id="vTel" placeholder="电话（可留空）">
+          <input type="text" id="vEmail" placeholder="邮箱（可留空）">
+          <div class="hint">生成后，手机扫一下直接存进通讯录</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctl">
+          <span class="label">尺寸</span>
+          <select id="size">
+            <option value="128">小 (128)</option>
+            <option value="256" selected>中 (256)</option>
+            <option value="512">大 (512)</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <span class="label">颜色</span>
+          <div class="colors" id="colors">
+            <div class="color active" data-color="#000000" style="background:#000000"></div>
+            <div class="color" data-color="#4f46e5" style="background:#4f46e5"></div>
+            <div class="color" data-color="#16a34a" style="background:#16a34a"></div>
+            <div class="color" data-color="#dc2626" style="background:#dc2626"></div>
+            <div class="color" data-color="#9333ea" style="background:#9333ea"></div>
+          </div>
+        </div>
+        <div style="margin-left:auto">
+          <button class="btn-ghost" id="clear">清空</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="qrcode-box">
+        <div id="qrcode"></div>
+        <button class="btn-primary" id="download" disabled>💾 下载二维码 PNG</button>
+        <div class="hint" id="hint">选择类型、填好内容后自动生成</div>
+      </div>
+    </div>
+
+    <footer>我的第五个 AI 小工具 · 支持网址 / WiFi / 名片 / 中文</footer>
+  </div>
+
+  <script>
+    const qrcodeBox = document.getElementById('qrcode');
+    const downloadBtn = document.getElementById('download');
+    const sizeSel = document.getElementById('size');
+    const hint = document.getElementById('hint');
+
+    const urlInput = document.getElementById('urlInput');
+    const wifiName = document.getElementById('wifiName');
+    const wifiPass = document.getElementById('wifiPass');
+    const wifiEnc = document.getElementById('wifiEnc');
+    const vName = document.getElementById('vName');
+    const vTel = document.getElementById('vTel');
+    const vEmail = document.getElementById('vEmail');
+
+    let type = 'url';
+    let darkColor = '#000000';
+    let currentDataUrl = null;   // 最近一次生成的图片，下载时用
+
+    if (typeof QRCode === 'undefined') {
+      hint.textContent = '⚠️ 加载二维码组件失败，请检查网络后刷新（需要联网）。';
+    }
+
+    // —— WiFi 特殊字符转义（WIFI 格式要求）——
+    const esc = s => String(s).replace(/([\\;,:"])/g, '\\$1');
+
+    // —— 把「输入的配置」拼成二维码要编码的那段文字 ——
+    function buildContent() {
+      switch (type) {
+        case 'url':
+          return urlInput.value.trim();
+        case 'wifi': {
+          const ssid = wifiName.value.trim();
+          if (!ssid) return '';
+          if (wifiEnc.value === 'nopass') return 'WIFI:T:nopass;S:' + esc(ssid) + ';;';
+          return 'WIFI:T:' + wifiEnc.value + ';S:' + esc(ssid) + ';P:' + esc(wifiPass.value) + ';;';
+        }
+        case 'vcard': {
+          const name = vName.value.trim();
+          if (!name) return '';
+          let card = 'BEGIN:VCARD\nVERSION:3.0\nFN:' + name + '\n';
+          if (vTel.value.trim()) card += 'TEL;TYPE=CELL:' + vTel.value.trim() + '\n';
+          if (vEmail.value.trim()) card += 'EMAIL:' + vEmail.value.trim() + '\n';
+          card += 'END:VCARD';
+          return card;
+        }
+      }
+      return '';
+    }
+
+    // —— 实时生成 ——
+    function generate() {
+      const content = buildContent();
+      qrcodeBox.innerHTML = '';
+
+      if (!content) {
+        downloadBtn.disabled = true;
+        currentDataUrl = null;
+        hint.textContent = '选择类型、填好内容后自动生成';
+        return;
+      }
+
+      const width = Number(sizeSel.value);
+
+      // node-qrcode 内部会正确地把中文按 UTF-8 编码，无需我们额外处理
+      QRCode.toDataURL(content, {
+        errorCorrectionLevel: 'H',               // 高容错：遮挡 30% 也能扫
+        width: width,                             // 输出图片像素
+        margin: 4,                                // 四周白边
+        color: { dark: darkColor, light: '#ffffff' },
+      }).then(url => {
+        currentDataUrl = url;
+        qrcodeBox.innerHTML = '<img src="' + url + '" alt="二维码">';
+        downloadBtn.disabled = false;
+        hint.textContent = '生成好了！点「下载」保存图片，或直接用手机扫一扫。';
+      }).catch(err => {
+        currentDataUrl = null;
+        qrcodeBox.innerHTML = '';
+        downloadBtn.disabled = true;
+        hint.textContent = '❌ 生成失败：' + err.message;
+      });
+    }
+
+    // —— 类型切换 ——
+    document.querySelectorAll('.type-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        type = tab.dataset.type;
+        document.querySelectorAll('.fields').forEach(f => f.classList.remove('show'));
+        document.getElementById('field-' + type).classList.add('show');
+        generate();
+      });
+    });
+
+    // 所有输入框，一有变化就重新生成
+    document.querySelectorAll('.fields input, .fields textarea, .fields select').forEach(el => {
+      el.addEventListener('input', generate);
+      el.addEventListener('change', generate);
+    });
+
+    sizeSel.addEventListener('change', generate);
+
+    // 颜色选择
+    document.querySelectorAll('.color').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.color').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        darkColor = el.dataset.color;
+        generate();
+      });
+    });
+
+    // —— 下载 PNG：toDataURL 生成的就是 PNG，直接用 ——
+    downloadBtn.addEventListener('click', () => {
+      if (!currentDataUrl) return;
+      const a = document.createElement('a');
+      a.href = currentDataUrl;
+      a.download = '二维码.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+
+    // 清空当前类型的输入
+    document.getElementById('clear').addEventListener('click', () => {
+      document.querySelectorAll('.fields input').forEach(i => i.value = '');
+      generate();
+    });
+  </script>
+</body>
+</html>

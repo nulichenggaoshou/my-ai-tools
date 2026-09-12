@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本统计工具</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 28px; font-weight: 700; }
+    header p { color: var(--muted); margin-top: 6px; font-size: 15px; }
+    header a { color: var(--primary); text-decoration: none; font-size: 14px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 15px;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color .15s;
+    }
+    textarea:focus { border-color: var(--primary); }
+    textarea.dragover { border-color: var(--primary); border-style: dashed; background: #f5f6ff; }
+    .toolbar { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    button {
+      border: none; border-radius: 9px; padding: 10px 18px;
+      font-size: 15px; cursor: pointer; transition: all .15s; font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: #fff; font-weight: 600; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: #f3f4f6; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+    .stat-card {
+      background: #fafbfc; border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px; text-align: center;
+    }
+    .stat-card .num { font-size: 28px; font-weight: 800; color: var(--primary); }
+    .stat-card .lbl { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    .section-title { font-weight: 700; font-size: 15px; margin-bottom: 10px; }
+
+    /* 字数限制检查 */
+    .limit-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    select {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; font-size: 14px; font-family: inherit; background: #fff;
+    }
+    .limit-result { font-size: 15px; }
+    .limit-result b { font-weight: 700; }
+    .limit-result.ok   { color: #16a34a; }
+    .limit-result.warn { color: #d97706; }
+    .limit-result.over { color: #dc2626; }
+    .limit-result .bar-track {
+      display: inline-block; width: 120px; height: 8px;
+      background: #f3f4f6; border-radius: 6px; overflow: hidden;
+      vertical-align: middle; margin-left: 6px;
+    }
+    .limit-result .bar-fill { display: block; height: 100%; border-radius: 6px; transition: width .3s; }
+    .limit-result.ok   .bar-fill { background: #16a34a; }
+    .limit-result.warn .bar-fill { background: #d97706; }
+    .limit-result.over .bar-fill { background: #dc2626; }
+
+    .freq-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+    .freq-row .word { width: 130px; font-family: ui-monospace, Consolas, monospace; font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+    .bar-wrap { flex: 1; background: #f3f4f6; border-radius: 6px; height: 16px; overflow: hidden; }
+    .bar { height: 100%; background: var(--primary); border-radius: 6px; transition: width .3s; }
+    .freq-row .cnt { width: 40px; text-align: right; font-weight: 600; font-size: 14px; }
+    .empty { text-align: center; color: #9ca3af; padding: 20px 0; font-size: 14px; }
+    footer { text-align: center; color: #9ca3af; font-size: 13px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 文本统计工具</h1>
+      <p>统计中英文、标点、段落、阅读时长，还能检查字数是否超限</p>
+      <a href="../index.html">← 返回工具集</a>
+    </header>
+
+    <div class="card">
+      <textarea id="input" placeholder="把要统计的文字粘贴到这里，或拖入 .txt 文件……"></textarea>
+      <div class="toolbar">
+        <button class="btn-ghost" id="sample">载入示例</button>
+        <button class="btn-ghost" id="clear">清空</button>
+        <button class="btn-primary" id="run">开始统计</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="stats-grid" id="stats"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">📏 字数限制检查（写文章 / 发内容前先看超没超）</div>
+      <div class="limit-row">
+        <select id="platform"></select>
+        <span id="limitResult" class="limit-result">选择平台后，输入文字自动判断</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">🔤 英文单词词频（出现最多的词）</div>
+      <div id="freq"></div>
+    </div>
+
+    <footer>我的第四个 AI 小工具 · 对象计数 + 排序 + 字数限制检查</footer>
+  </div>
+
+  <script>
+    const input = document.getElementById('input');
+    const statsEl = document.getElementById('stats');
+    const freqEl = document.getElementById('freq');
+    const platformSel = document.getElementById('platform');
+    const limitResult = document.getElementById('limitResult');
+
+    // —— 各平台的字数限制（按“不含空白的字符数”算）——
+    const LIMITS = [
+      { name: '微信公众号标题', limit: 64 },
+      { name: '微博', limit: 280 },
+      { name: '小红书正文', limit: 1000 },
+      { name: '抖音文案', limit: 55 },
+      { name: 'B站简介', limit: 100 },
+      { name: '论文摘要', limit: 300 },
+    ];
+    platformSel.innerHTML = LIMITS.map((p, i) =>
+      '<option value="' + i + '">' + p.name + '（限 ' + p.limit + ' 字）</option>'
+    ).join('');
+
+    // —— 字数限制判断 ——
+    function updateLimit() {
+      const text = input.value;
+      const count = text.replace(/\s/g, '').length;   // 平台口径：去掉空白，其余都算 1 字
+      const p = LIMITS[platformSel.value];
+
+      if (count === 0) {
+        limitResult.className = 'limit-result';
+        limitResult.innerHTML = '选择平台后，输入文字自动判断';
+        return;
+      }
+
+      const left = p.limit - count;
+      const ratio = count / p.limit;
+      let cls, msg, extra;
+      if (left >= 0) {
+        cls = ratio >= 0.9 ? 'warn' : 'ok';
+        msg = ratio >= 0.9 ? '⚠️ 快超了' : '✅ 未超限';
+        extra = '，还可写 ' + left + ' 字';
+      } else {
+        cls = 'over';
+        msg = '❌ 已超限';
+        extra = '，需删减 ' + (-left) + ' 字';
+      }
+
+      const pct = Math.min(100, Math.round(ratio * 100));
+      limitResult.className = 'limit-result ' + cls;
+      limitResult.innerHTML =
+        '当前 <b>' + count + '</b> 字 / 限 <b>' + p.limit + '</b> 字　' + msg + extra +
+        '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%"></span></span>';
+    }
+    platformSel.addEventListener('change', updateLimit);
+
+    function analyze() {
+      const text = input.value;
+      if (!text) {
+        statsEl.innerHTML = '<div class="empty">输入文字后点「开始统计」</div>';
+        freqEl.innerHTML = '<div class="empty">暂无数据</div>';
+        updateLimit();
+        return;
+      }
+
+      // —— 各种统计：核心就是「正则 match 出来的个数」——
+      const cnChar   = (text.match(/[一-龥]/g) || []).length;                        // 中文字数
+      const cnPunct  = (text.match(/[，。！？；：、""''（）《》【】…—·]/g) || []).length; // 中文标点
+      const enLetter = (text.match(/[A-Za-z]/g) || []).length;                       // 英文字母
+      const enWord   = (text.match(/[A-Za-z]+/g) || []).length;                      // 英文单词
+      const digit    = (text.match(/\d/g) || []).length;                             // 数字
+      const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim() !== '').length;  // 段落数
+      const readMin  = Math.max(1, Math.round(cnChar / 500 + enWord / 250));         // 阅读时长估算
+
+      const items = [
+        { label: '总字符',        num: text.length },
+        { label: '非空白字符',    num: text.replace(/\s/g, '').length },
+        { label: '中文字数',      num: cnChar },
+        { label: '中文标点',      num: cnPunct },
+        { label: '英文字母',      num: enLetter },
+        { label: '英文单词',      num: enWord },
+        { label: '数字',          num: digit },
+        { label: '段落数',        num: paragraphs },
+        { label: '行数',          num: text.split('\n').length },
+        { label: '阅读时长(分)',  num: readMin },
+      ];
+      statsEl.innerHTML = items.map(i =>
+        '<div class="stat-card"><div class="num">' + i.num + '</div><div class="lbl">' + i.label + '</div></div>'
+      ).join('');
+
+      // —— 词频统计：用对象 {} 当「计数字典」——
+      const words = text.match(/[A-Za-z]+/g) || [];
+      const freq = {};
+      words.forEach(w => {
+        w = w.toLowerCase();                    // 统一小写，The 和 the 算同一个词
+        freq[w] = (freq[w] || 0) + 1;           // 每出现一次 +1
+      });
+
+      // 转成数组，按次数从高到低排序
+      const sorted = Object.entries(freq)
+        .map(([word, count]) => ({ word, count }))
+        .sort((a, b) => b.count - a.count);
+
+      if (sorted.length === 0) {
+        freqEl.innerHTML = '<div class="empty">没有英文单词</div>';
+      } else {
+        const max = sorted[0].count;              // 最多的次数，用来算条形长度
+        const top = sorted.slice(0, 20);          // 取前 20 个
+        freqEl.innerHTML = top.map(({ word, count }) =>
+          '<div class="freq-row">' +
+            '<span class="word">' + word + '</span>' +
+            '<div class="bar-wrap"><div class="bar" style="width:' + (count / max * 100) + '%"></div></div>' +
+            '<span class="cnt">' + count + '</span>' +
+          '</div>'
+        ).join('');
+      }
+
+      updateLimit();
+    }
+
+    document.getElementById('run').addEventListener('click', analyze);
+
+    document.getElementById('sample').addEventListener('click', () => {
+      input.value = [
+        'The quick brown fox jumps over the lazy dog. The dog is lazy, and the fox is quick.',
+        '',
+        '这是一段中文文字，用来测试统计功能。中文字符会被统计进去，中文标点、段落、阅读时长也都能算。',
+        '',
+        '第二段：Call me at 13812345678 or email hello@example.com on 2024年3月15日',
+        'the quick brown fox and the lazy dog and the quick fox',
+      ].join('\n');
+      analyze();
+    });
+
+    document.getElementById('clear').addEventListener('click', () => {
+      input.value = '';
+      statsEl.innerHTML = '<div class="empty">输入文字后点「开始统计」</div>';
+      freqEl.innerHTML = '<div class="empty">暂无数据</div>';
+      updateLimit();
+    });
+
+    // 拖入 txt
+    input.addEventListener('dragover', e => { e.preventDefault(); input.classList.add('dragover'); });
+    input.addEventListener('dragleave', () => input.classList.remove('dragover'));
+    input.addEventListener('drop', e => {
+      e.preventDefault();
+      input.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = ev => { input.value = ev.target.result; analyze(); };
+        reader.readAsText(file);
+      }
+    });
+  </script>
+</body>
+</html>
